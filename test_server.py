@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 import unittest
 from unittest.mock import MagicMock, patch
-from ea_mcp.server import EAServer, DIAGRAM_TYPES, ELEMENT_TYPES
-from ea_mcp.ea_connector import EAConnector
+from server import EAServer, DIAGRAM_TYPES, ELEMENT_TYPES
+from ea_connector import EAConnector
 
 class TestEAServer(unittest.TestCase):
     def setUp(self):

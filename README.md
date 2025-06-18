@@ -24,9 +24,16 @@ The server requires Enterprise Architect to be installed on the system. No addit
 
 ## Usage
 
-1. Start the MCP server:
+1. Start the MCP server (either method works):
+
+   As a module:
    ```bash
-   python -m ea_mcp.server
+   python -m server
+   ```
+
+   Or directly:
+   ```bash
+   python path/to/ea_mcp/server.py
    ```
 
 2. The server will expose these tools:

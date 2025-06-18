@@ -5,7 +5,7 @@ from mcp.server.fastmcp import FastMCP
 from typing import Dict, Any, List
 import json
 import logging
-from .ea_connector import EAConnector
+from ea_connector import EAConnector
 
 # EA Diagram Types
 DIAGRAM_TYPES = {
