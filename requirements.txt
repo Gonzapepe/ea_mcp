@@ -1,2 +1,3 @@
 fastMCP>=0.1.0
 pywin32>=300
+python-dotenv>=0.15.0

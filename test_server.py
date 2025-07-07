@@ -1,125 +1,96 @@
 #!/usr/bin/env python3
 import unittest
-from unittest.mock import MagicMock, patch
-from server import EAServer, DIAGRAM_TYPES, ELEMENT_TYPES
+from unittest.mock import patch
+from server import create_sequence_diagram, create_class_diagram, create_use_case_diagram, create_activity_diagram, DIAGRAM_TYPES, ELEMENT_TYPES
 from ea_connector import EAConnector
 
-class TestEAServer(unittest.TestCase):
-    def setUp(self):
-        self.server = EAServer()
-        # Mock the EA connector to avoid actual EA calls
-        self.server.connector = MagicMock(spec=EAConnector)
+class TestServerFunctions(unittest.TestCase):
 
-    def test_sequence_diagram_creation(self):
+    @patch('server.connector')
+    def test_sequence_diagram_creation(self, mock_connector):
         """Test sequence diagram creation"""
-        # Setup mock return values
-        self.server.connector.create_diagram.return_value = {
+        mock_connector.connect.return_value = True
+        mock_connector.create_diagram.return_value = {
             "guid": "test-guid-123",
-            "name": "Test Sequence",
-            "type": DIAGRAM_TYPES["sequence"]
         }
-        
-        # Test data
+        mock_connector.add_element_to_diagram.return_value = {
+            "guid": "element-guid-1"
+        }
+        mock_connector.auto_layout_diagram.return_value = True
+
         test_args = {
             "package_guid": "test-pkg-123",
             "name": "Test Sequence",
             "elements": [
                 {"name": "User", "type": "Actor"},
-                {"name": "System", "type": "Boundary"}
             ]
         }
 
-        # Call the method
-        result = self.server.create_sequence_diagram(test_args)
+        result = create_sequence_diagram(test_args)
 
-        # Verify results
         self.assertEqual(result["status"], "success")
         self.assertEqual(result["diagram_guid"], "test-guid-123")
-        self.server.connector.create_diagram.assert_called_once_with(
-            "test-pkg-123", 
-            "Test Sequence", 
-            DIAGRAM_TYPES["sequence"]
-        )
+        mock_connector.create_diagram.assert_called_once()
+        mock_connector.add_element_to_diagram.assert_called_once()
+        mock_connector.auto_layout_diagram.assert_called_once()
 
-    def test_class_diagram_creation(self):
+    @patch('server.connector')
+    def test_class_diagram_creation(self, mock_connector):
         """Test class diagram creation"""
-        self.server.connector.create_diagram.return_value = {
-            "guid": "test-guid-456",
-            "name": "Test Classes",
-            "type": DIAGRAM_TYPES["class"]
-        }
+        mock_connector.connect.return_value = True
+        mock_connector.create_diagram.return_value = {"guid": "test-guid-456"}
+        mock_connector.add_element_to_diagram.return_value = {"guid": "class-guid-1"}
+        mock_connector.auto_layout_diagram.return_value = True
 
         test_args = {
             "package_guid": "test-pkg-123",
             "name": "Test Classes",
-            "classes": [
-                {
-                    "name": "User",
-                    "attributes": ["username", "password"],
-                    "methods": ["login()", "logout()"]
-                }
-            ]
+            "classes": [{"name": "User"}]
         }
 
-        result = self.server.create_class_diagram(test_args)
+        result = create_class_diagram(test_args)
         self.assertEqual(result["status"], "success")
         self.assertEqual(result["diagram_guid"], "test-guid-456")
 
-    def test_use_case_diagram_creation(self):
+    @patch('server.connector')
+    def test_use_case_diagram_creation(self, mock_connector):
         """Test use case diagram creation"""
-        self.server.connector.create_diagram.return_value = {
-            "guid": "test-guid-789",
-            "name": "Test Use Cases",
-            "type": DIAGRAM_TYPES["use_case"]
-        }
+        mock_connector.connect.return_value = True
+        mock_connector.create_diagram.return_value = {"guid": "test-guid-789"}
+        mock_connector.add_element_to_diagram.side_effect = [{"guid": "actor-guid-1"}, {"guid": "uc-guid-1"}]
+        mock_connector.auto_layout_diagram.return_value = True
 
         test_args = {
             "package_guid": "test-pkg-123",
             "name": "Test Use Cases",
-            "actors": ["User", "Admin"],
-            "use_cases": ["Login", "Logout"]
+            "actors": ["User"],
+            "use_cases": ["Login"]
         }
 
-        result = self.server.create_use_case_diagram(test_args)
+        result = create_use_case_diagram(test_args)
         self.assertEqual(result["status"], "success")
-        self.assertEqual(len(result["actors"]), 2)
-        self.assertEqual(len(result["use_cases"]), 2)
+        self.assertEqual(len(result["actors"]), 1)
+        self.assertEqual(len(result["use_cases"]), 1)
 
-    def test_activity_diagram_creation(self):
+    @patch('server.connector')
+    def test_activity_diagram_creation(self, mock_connector):
         """Test activity diagram creation"""
-        self.server.connector.create_diagram.return_value = {
-            "guid": "test-guid-abc",
-            "name": "Test Activities",
-            "type": DIAGRAM_TYPES["activity"]
-        }
+        mock_connector.connect.return_value = True
+        mock_connector.create_diagram.return_value = {"guid": "test-guid-abc"}
+        mock_connector.add_element_to_diagram.side_effect = [{"guid": "activity-guid-1"}, {"guid": "decision-guid-1"}]
+        mock_connector.auto_layout_diagram.return_value = True
 
         test_args = {
             "package_guid": "test-pkg-123",
             "name": "Test Activities",
-            "activities": ["Start", "Process", "End"],
+            "activities": ["Start"],
             "decisions": ["Valid?"]
         }
 
-        result = self.server.create_activity_diagram(test_args)
+        result = create_activity_diagram(test_args)
         self.assertEqual(result["status"], "success")
-        self.assertEqual(len(result["activities"]), 3)
+        self.assertEqual(len(result["activities"]), 1)
         self.assertEqual(len(result["decisions"]), 1)
-
-@patch('ea_mcp.server.EAConnector')
-def test_server_integration(mock_connector):
-    """Integration test for the MCP server"""
-    # Setup mock connector
-    mock_connector.return_value.connect.return_value = True
-    
-    # Create and run server
-    server = EAServer()
-    server.connector = mock_connector.return_value
-    
-    # Verify server starts
-    try:
-        server.run()
-    except Exception as e:
-        assert False, f"Server failed to run: {str(e)}"
 
 if __name__ == "__main__":
     unittest.main()

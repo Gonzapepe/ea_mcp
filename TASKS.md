@@ -3,6 +3,10 @@
 ## Setup & Infrastructure Tasks
 
 ### 1. Project Foundation
+- [x] **Refactor project structure**
+  - Moved core modules from ea_mcp/ to root directory
+  - Updated imports and tests accordingly
+  - Documented changes in README.md
 - [x] **Set up Python virtual environment**
   - Created `requirements.txt` with initial dependencies
   - Set up development environment with proper Python version
@@ -12,6 +16,7 @@
   - Created directory structure as outlined in PLANNING.md
   - Set up `__init__.py` files for proper package structure
   - Created placeholder files for main modules
+  - Refactored to move core modules to root directory (commit 16d025c)
 
 - [x] **Install core dependencies**
   - Installed MCP library: `pip install mcp`
