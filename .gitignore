@@ -1,4 +1,7 @@
 venv/
 __pycache__/
+.vscode/
+.idea/
+*.pyc
+*.log
 .gemini/
-.env

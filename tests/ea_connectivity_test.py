@@ -49,8 +49,3 @@ def test_diagram_creation_and_modification():
             print(f"Auto-layout applied successfully: {layout_success}")
     else:
         print("Not connected to EA, cannot create diagram.")
-
-
-if __name__ == "__main__":
-    test_ea_connectivity()
-    test_diagram_creation_and_modification()
