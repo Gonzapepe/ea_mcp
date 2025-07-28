@@ -119,6 +119,29 @@ Example:
 }
 ```
 
+### Lifeline Creation Tools
+These tools add specific types of lifelines to an existing sequence diagram.
+
+Parameters for all lifeline tools:
+- `diagram_guid`: GUID of the parent sequence diagram.
+- `name`: Name of the lifeline element.
+
+**Available Tools:**
+- `create_actor_lifeline`
+- `create_boundary_lifeline`
+- `create_control_lifeline`
+- `create_entity_lifeline`
+- `create_database_lifeline`
+- `create_use_case_lifeline`
+
+Example for `create_boundary_lifeline`:
+```json
+{
+  "diagram_guid": "ABCD-EFGH-IJKL-MNOP",
+  "name": "Login UI"
+}
+```
+
 ## Development
 
 To contribute or modify the server:

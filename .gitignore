@@ -5,3 +5,4 @@ __pycache__/
 *.pyc
 *.log
 .gemini/
+.pytest_cache/
