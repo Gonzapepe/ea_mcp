@@ -4,5 +4,5 @@ __pycache__/
 .idea/
 *.pyc
 *.log
-.gemini/
 .pytest_cache/
+.env
