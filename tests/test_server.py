@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 from unittest.mock import patch
+import sys
+import os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+
 from server import create_sequence_diagram, create_class_diagram, create_use_case_diagram, create_activity_diagram, DIAGRAM_TYPES, ELEMENT_TYPES
 from ea_connector import EAConnector
 
@@ -88,3 +92,38 @@ def test_activity_diagram_creation(mock_connector):
     assert result["status"] == "success"
     assert len(result["activities"]) == 1
     assert len(result["decisions"]) == 1
+
+@patch('server.connector')
+def test_sequence_diagram_creation_connection_fails(mock_connector):
+    """Test sequence diagram creation when EA connection fails"""
+    mock_connector.connect.return_value = False
+
+    test_args = {
+        "package_guid": "test-pkg-123",
+        "name": "Test Sequence",
+        "elements": [{"name": "User", "type": "Actor"}]
+    }
+
+    result = create_sequence_diagram(test_args)
+
+    assert result["status"] == "error"
+    assert "Failed to connect to Enterprise Architect" in result["message"]
+    mock_connector.create_diagram.assert_not_called()
+
+@patch('server.connector')
+def test_sequence_diagram_creation_diagram_fails(mock_connector):
+    """Test sequence diagram creation when the diagram itself fails to be created"""
+    mock_connector.connect.return_value = True
+    mock_connector.create_diagram.return_value = None  # Simulate diagram creation failure
+
+    test_args = {
+        "package_guid": "test-pkg-123",
+        "name": "Test Sequence",
+        "elements": [{"name": "User", "type": "Actor"}]
+    }
+
+    result = create_sequence_diagram(test_args)
+
+    assert result["status"] == "error"
+    assert result["message"] == "Failed to create diagram"
+    mock_connector.add_element_to_diagram.assert_not_called()

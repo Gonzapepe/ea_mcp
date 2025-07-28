@@ -72,6 +72,14 @@
   - `get_element_relationships` - Find connected elements
   - Add proper error handling for missing elements
 
+- [x] **Implement additional sequence diagram element tools**
+  - `create_actor_lifeline`
+  - `create_boundary_lifeline`
+  - `create_control_lifeline`
+  - `create_entity_lifeline`
+  - `create_database_lifeline`
+  - `create_use_case_lifeline`
+
 - [ ] **Implement basic search tools** (Future Phase)
   - `search_elements` - Find elements by name/type
   - `search_diagrams` - Find diagrams by criteria
@@ -80,7 +88,7 @@
 ## Testing & Validation
 
 ### 5. Testing Infrastructure
-- [ ] **Set up test framework**
+- [x] **Set up test framework**
   - Configure pytest for the project
   - Create test data (sample EA repositories)
   - Set up test configuration and fixtures
