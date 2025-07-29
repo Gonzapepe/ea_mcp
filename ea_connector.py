@@ -37,19 +37,20 @@ class EAConnector:
         
         return win32com.client.Dispatch("EA.App")
         
-    def connect(self) -> bool:
+    def connect(self, ea_file_path: Optional[str] = None) -> bool:
         """Connect to Enterprise Architect via COM"""
         try:
             self.connect_ea()
             self.repository = self.ea_app.Repository
             
-            # Load EA file from environment variable
-            from dotenv import load_dotenv
-            load_dotenv()
-            ea_file_path = os.getenv("EA_FILE_PATH")
+            # Load EA file from environment variable if not provided
             if not ea_file_path:
-                self.logger.error("EA_FILE_PATH environment variable not set.")
-                return False
+                from dotenv import load_dotenv
+                load_dotenv()
+                ea_file_path = os.getenv("EA_FILE_PATH")
+                if not ea_file_path:
+                    self.logger.error("EA_FILE_PATH environment variable not set and no path provided.")
+                    return False
 
             self.repository.OpenFile(ea_file_path)
             self.logger.info(f"Successfully opened EA file: {ea_file_path}")

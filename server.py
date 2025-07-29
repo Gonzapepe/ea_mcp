@@ -121,9 +121,6 @@ LIFELINE_SCHEMA = {
 # Clean up complete - all old class methods removed
 def _create_lifeline(diagram_guid: str, element_name: str, lifeline_type: str) -> Dict[str, Any]:
     """Internal helper to create a lifeline element on a diagram."""
-    if not connector.connect():
-        return {"status": "error", "message": "Failed to connect to Enterprise Architect"}
-        
     try:
         # In EA, lifelines on sequence diagrams are 'Object' elements with a specific stereotype
         element = connector.add_element_to_diagram(
@@ -152,9 +149,9 @@ def _create_lifeline(diagram_guid: str, element_name: str, lifeline_type: str) -
     description="Creates a sequence diagram in Enterprise Architect",
     annotations={"input_schema": SEQUENCE_DIAGRAM_SCHEMA}
 )
-def create_sequence_diagram(args: Dict[str, Any]) -> Dict[str, Any]:
+def create_sequence_diagram(args: Dict[str, Any], ea_file_path: str = None) -> Dict[str, Any]:
     """Create sequence diagram in EA"""
-    if not connector.connect():
+    if not connector.connect(ea_file_path):
         return {"status": "error", "message": "Failed to connect to Enterprise Architect"}
         
     try:
@@ -196,9 +193,9 @@ def create_sequence_diagram(args: Dict[str, Any]) -> Dict[str, Any]:
     description="Creates a class diagram in Enterprise Architect",
     annotations={"input_schema": CLASS_DIAGRAM_SCHEMA}
 )
-def create_class_diagram(args: Dict[str, Any]) -> Dict[str, Any]:
+def create_class_diagram(args: Dict[str, Any], ea_file_path: str = None) -> Dict[str, Any]:
     """Create class diagram in EA"""
-    if not connector.connect():
+    if not connector.connect(ea_file_path):
         return {"status": "error", "message": "Failed to connect to Enterprise Architect"}
         
     try:
@@ -239,9 +236,9 @@ def create_class_diagram(args: Dict[str, Any]) -> Dict[str, Any]:
     description="Creates a use case diagram in Enterprise Architect",
     annotations={"input_schema": USE_CASE_DIAGRAM_SCHEMA}
 )
-def create_use_case_diagram(args: Dict[str, Any]) -> Dict[str, Any]:
+def create_use_case_diagram(args: Dict[str, Any], ea_file_path: str = None) -> Dict[str, Any]:
     """Create use case diagram in EA"""
-    if not connector.connect():
+    if not connector.connect(ea_file_path):
         return {"status": "error", "message": "Failed to connect to Enterprise Architect"}
         
     try:
@@ -295,9 +292,9 @@ def create_use_case_diagram(args: Dict[str, Any]) -> Dict[str, Any]:
     description="Creates an activity diagram in Enterprise Architect",
     annotations={"input_schema": ACTIVITY_DIAGRAM_SCHEMA}
 )
-def create_activity_diagram(args: Dict[str, Any]) -> Dict[str, Any]:
+def create_activity_diagram(args: Dict[str, Any], ea_file_path: str = None) -> Dict[str, Any]:
     """Create activity diagram in EA"""
-    if not connector.connect():
+    if not connector.connect(ea_file_path):
         return {"status": "error", "message": "Failed to connect to Enterprise Architect"}
         
     try:
@@ -351,8 +348,10 @@ def create_activity_diagram(args: Dict[str, Any]) -> Dict[str, Any]:
     description="Creates an actor lifeline on a sequence diagram.",
     annotations={"input_schema": LIFELINE_SCHEMA}
 )
-def create_actor_lifeline(args: Dict[str, Any]) -> Dict[str, Any]:
+def create_actor_lifeline(args: Dict[str, Any], ea_file_path: str = None) -> Dict[str, Any]:
     """Create an actor lifeline in EA"""
+    if not connector.connect(ea_file_path):
+        return {"status": "error", "message": "Failed to connect to Enterprise Architect"}
     return _create_lifeline(args["diagram_guid"], args["name"], "actor")
 
 @mcp.tool(
@@ -360,8 +359,10 @@ def create_actor_lifeline(args: Dict[str, Any]) -> Dict[str, Any]:
     description="Creates a boundary lifeline on a sequence diagram.",
     annotations={"input_schema": LIFELINE_SCHEMA}
 )
-def create_boundary_lifeline(args: Dict[str, Any]) -> Dict[str, Any]:
+def create_boundary_lifeline(args: Dict[str, Any], ea_file_path: str = None) -> Dict[str, Any]:
     """Create a boundary lifeline in EA"""
+    if not connector.connect(ea_file_path):
+        return {"status": "error", "message": "Failed to connect to Enterprise Architect"}
     return _create_lifeline(args["diagram_guid"], args["name"], "boundary")
 
 @mcp.tool(
@@ -369,8 +370,10 @@ def create_boundary_lifeline(args: Dict[str, Any]) -> Dict[str, Any]:
     description="Creates a control lifeline on a sequence diagram.",
     annotations={"input_schema": LIFELINE_SCHEMA}
 )
-def create_control_lifeline(args: Dict[str, Any]) -> Dict[str, Any]:
+def create_control_lifeline(args: Dict[str, Any], ea_file_path: str = None) -> Dict[str, Any]:
     """Create a control lifeline in EA"""
+    if not connector.connect(ea_file_path):
+        return {"status": "error", "message": "Failed to connect to Enterprise Architect"}
     return _create_lifeline(args["diagram_guid"], args["name"], "control")
 
 @mcp.tool(
@@ -378,8 +381,10 @@ def create_control_lifeline(args: Dict[str, Any]) -> Dict[str, Any]:
     description="Creates an entity lifeline on a sequence diagram.",
     annotations={"input_schema": LIFELINE_SCHEMA}
 )
-def create_entity_lifeline(args: Dict[str, Any]) -> Dict[str, Any]:
+def create_entity_lifeline(args: Dict[str, Any], ea_file_path: str = None) -> Dict[str, Any]:
     """Create an entity lifeline in EA"""
+    if not connector.connect(ea_file_path):
+        return {"status": "error", "message": "Failed to connect to Enterprise Architect"}
     return _create_lifeline(args["diagram_guid"], args["name"], "entity")
 
 @mcp.tool(
@@ -387,8 +392,10 @@ def create_entity_lifeline(args: Dict[str, Any]) -> Dict[str, Any]:
     description="Creates a database lifeline on a sequence diagram.",
     annotations={"input_schema": LIFELINE_SCHEMA}
 )
-def create_database_lifeline(args: Dict[str, Any]) -> Dict[str, Any]:
+def create_database_lifeline(args: Dict[str, Any], ea_file_path: str = None) -> Dict[str, Any]:
     """Create a database lifeline in EA"""
+    if not connector.connect(ea_file_path):
+        return {"status": "error", "message": "Failed to connect to Enterprise Architect"}
     return _create_lifeline(args["diagram_guid"], args["name"], "database")
 
 @mcp.tool(
@@ -396,8 +403,10 @@ def create_database_lifeline(args: Dict[str, Any]) -> Dict[str, Any]:
     description="Creates a use case lifeline on a sequence diagram.",
     annotations={"input_schema": LIFELINE_SCHEMA}
 )
-def create_use_case_lifeline(args: Dict[str, Any]) -> Dict[str, Any]:
+def create_use_case_lifeline(args: Dict[str, Any], ea_file_path: str = None) -> Dict[str, Any]:
     """Create a use case lifeline in EA"""
+    if not connector.connect(ea_file_path):
+        return {"status": "error", "message": "Failed to connect to Enterprise Architect"}
     return _create_lifeline(args["diagram_guid"], args["name"], "use_case")
 
 if __name__ == "__main__":

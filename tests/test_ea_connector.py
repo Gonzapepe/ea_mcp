@@ -1,5 +1,8 @@
 import pytest
 from unittest.mock import MagicMock, patch
+import sys
+import os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from ea_connector import EAConnector
 import os
 
@@ -24,7 +27,7 @@ def connector(mock_win32com, mock_ea_app):
 def test_connect_success(mocker, connector, mock_win32com, mock_ea_app):
     """Test successful connection to an EA repository."""
     mocker.patch.dict(os.environ, {"EA_FILE_PATH": "dummy_path"})
-    result = connector.connect()
+    result = connector.connect("dummy_path")
     mock_win32com.assert_called_once_with('EA.App')
     mock_ea_app.Repository.OpenFile.assert_called_once_with('dummy_path')
     assert result is True
@@ -33,14 +36,14 @@ def test_connect_failure_no_env_var(mocker, connector):
     """Test connection failure when EA_FILE_PATH is not set."""
     mocker.patch.object(connector, 'connect_ea', return_value=True)
     mocker.patch.dict(os.environ, {}, clear=True)
-    result = connector.connect()
+    result = connector.connect("dummy_path")
     assert result is False
 
 def test_connect_failure_ea_exception(mocker, connector, mock_win32com, mock_ea_app):
     """Test connection failure due to an exception from EA."""
     mocker.patch.dict(os.environ, {"EA_FILE_PATH": "dummy_path"})
     mock_ea_app.Repository.OpenFile.side_effect = Exception("Connection failed")
-    result = connector.connect()
+    result = connector.connect("dummy_path")
     mock_win32com.assert_called_once_with('EA.App')
     assert result is False
 
