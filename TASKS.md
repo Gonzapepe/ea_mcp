@@ -93,7 +93,7 @@
   - Create test data (sample EA repositories)
   - Set up test configuration and fixtures
 
-- [ ] **Write unit tests**
+- [x] **Write unit tests**
   - Test EA connector functionality
   - Test individual MCP tools
   - Test error handling scenarios
