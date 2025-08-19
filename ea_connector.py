@@ -6,6 +6,7 @@ import logging
 import sys
 import os
 import shutil
+from exceptions import EAConnectorError
 
 class EAConnector:
     """Handles connection and operations with Enterprise Architect"""
@@ -18,53 +19,57 @@ class EAConnector:
     def connect_ea(self):
         try:
             self.ea_app = win32com.client.Dispatch("EA.App")
-            print("Connected to EA successfully.")
-            
+            self.logger.info("Connected to EA successfully.")
             return True
         except AttributeError:
-            print("Failed to connect to EA. Attempting to fix gen_py cache...")
-            # Limpiar caché y reintentar
+            self.logger.warning("Failed to connect to EA. Attempting to fix gen_py cache...")
+            # Clean up cache and retry
             temp_dir = os.path.join(os.environ['LOCALAPPDATA'], 'Temp')
             gen_py_path = os.path.join(temp_dir, 'gen_py')
             
             if os.path.exists(gen_py_path):
                 shutil.rmtree(gen_py_path)
             
-            # Eliminar módulos corruptos de sys.modules
+            # Remove corrupted modules from sys.modules
             for mod in list(sys.modules):
                 if mod.startswith('win32com.gen_py'):
                     del sys.modules[mod]
+            
+            try:
+                self.ea_app = win32com.client.Dispatch("EA.App")
+                self.logger.info("Connected to EA successfully after cache cleanup.")
+                return True
+            except Exception as e:
+                raise EAConnectorError("Failed to connect to EA after cache cleanup.", details=str(e))
         
-        return win32com.client.Dispatch("EA.App")
-        
-    def connect(self, ea_file_path: Optional[str] = None) -> bool:
+    def connect(self, ea_file_path: Optional[str] = None):
         """Connect to Enterprise Architect via COM"""
         try:
-            self.connect_ea()
+            if not self.ea_app:
+                self.connect_ea()
+            
             self.repository = self.ea_app.Repository
             
-            # Load EA file from environment variable if not provided
             if not ea_file_path:
                 from dotenv import load_dotenv
                 load_dotenv()
                 ea_file_path = os.getenv("EA_FILE_PATH")
                 if not ea_file_path:
-                    self.logger.error("EA_FILE_PATH environment variable not set and no path provided.")
-                    return False
+                    raise EAConnectorError("EA_FILE_PATH environment variable not set and no path provided.")
 
             self.repository.OpenFile(ea_file_path)
             self.logger.info(f"Successfully opened EA file: {ea_file_path}")
-            return True
+        except EAConnectorError:
+            # Re-raise EAConnectorError as-is to preserve specific error messages
+            raise
         except Exception as e:
-            self.logger.error(f"Failed to connect to EA: {str(e)}")
-            print(f"Error connecting to EA: {e}")
-            return False
+            raise EAConnectorError("Failed to connect to EA repository.", details=str(e))
             
-    def create_diagram(self, package_guid: str, name: str, diagram_type: str) -> Optional[Dict[str, Any]]:
+    def create_diagram(self, package_guid: str, name: str, diagram_type: str) -> Dict[str, Any]:
         """Create a new diagram in EA"""
         package = self.repository.GetPackageByGuid(package_guid)
         if not package:
-            return None
+            raise EAConnectorError(f"Package with GUID '{package_guid}' not found.")
             
         try:
             diagrams = package.Diagrams
@@ -77,18 +82,16 @@ class EAConnector:
                 "type": diagram.Type
             }
         except Exception as e:
-            self.logger.error(f"Failed to create diagram: {str(e)}")
-            return None
+            raise EAConnectorError("Failed to create diagram.", details=str(e))
             
     def add_element_to_diagram(self, diagram_guid: str, element_name: str, element_type: str, 
-                             stereotype: str = "") -> Optional[Dict[str, Any]]:
+                             stereotype: str = "") -> Dict[str, Any]:
         """Add an element to an existing diagram"""
+        diagram = self.repository.GetDiagramByGuid(diagram_guid)
+        if not diagram:
+            raise EAConnectorError(f"Diagram with GUID '{diagram_guid}' not found.")
+        
         try:
-            diagram = self.repository.GetDiagramByGuid(diagram_guid)
-            if not diagram:
-                return None
-            
-            # First create the element in the model (not just the diagram)
             package = self.repository.GetPackageByID(diagram.PackageID)
             elements = package.Elements
             element = elements.AddNew(element_name, element_type)
@@ -108,39 +111,32 @@ class EAConnector:
                 "type": element.Type
             }
         except Exception as e:
-            self.logger.error(f"Failed to add element to diagram: {str(e)}", exc_info=True)
-            return None
+            raise EAConnectorError("Failed to add element to diagram.", details=str(e))
 
-    def auto_layout_diagram(self, diagram_guid: str, layout_style: int = 0) -> bool:
+    def auto_layout_diagram(self, diagram_guid: str, layout_style: int = 0):
         """Automatically layout a diagram"""
+        diagram = self.repository.GetDiagramByGuid(diagram_guid)
+        if not diagram:
+            raise EAConnectorError(f"Diagram with GUID '{diagram_guid}' not found.")
+        
         try:
-            diagram = self.repository.GetDiagramByGuid(diagram_guid)
-            if not diagram:
-                return False
-            
-            # Use EA's auto-layout feature
             project = self.repository.GetProjectInterface()
             project.LayoutDiagram(diagram.DiagramGUID, layout_style)
-            
-            # Reload the diagram to see changes
             self.repository.ReloadDiagram(diagram.DiagramID)
-            return True
         except Exception as e:
-            self.logger.error(f"Failed to auto-layout diagram: {str(e)}")
-            return False
+            raise EAConnectorError("Failed to auto-layout diagram.", details=str(e))
 
-
-    def get_package(self, package_guid: str) -> Optional[Dict[str, Any]]:
+    def get_package(self, package_guid: str) -> Dict[str, Any]:
         """Retrieve a package by its GUID"""
+        package = self.repository.GetPackageByGuid(package_guid)
+        if not package:
+            raise EAConnectorError(f"Package with GUID '{package_guid}' not found.")
+        
         try:
-            package = self.repository.GetPackageByGuid(package_guid)
-            if package:
-                return {
-                    "guid": package.PackageGUID,
-                    "name": package.Name,
-                    "notes": package.Notes
-                }
-            return None
+            return {
+                "guid": package.PackageGUID,
+                "name": package.Name,
+                "notes": package.Notes
+            }
         except Exception as e:
-            self.logger.error(f"Failed to get package: {str(e)}")
-            return None
+            raise EAConnectorError("Failed to retrieve package details.", details=str(e))

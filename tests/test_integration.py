@@ -8,19 +8,20 @@ from server import (
     create_activity_diagram, create_actor_lifeline
 )
 from ea_connector import EAConnector
+from exceptions import EAConnectorError
 
 @pytest.fixture(scope="module")
 def connector():
     """Fixture to provide a connected EAConnector instance for integration tests."""
     conn = EAConnector()
-    # Correct the path format for Windows
     test_project_path = os.path.abspath("D:/proyectos/Python/ea_mcp/tests/test_project.eapx")
-    assert conn.connect(test_project_path), "Failed to connect to the test EA project"
-    yield conn
-    conn.repository.CloseFile()
-    # Setting to None is important for COM object cleanup
-    conn.repository = None 
-    pythoncom.CoUninitialize()
+    try:
+        conn.connect(test_project_path)
+        yield conn
+    finally:
+        if conn.repository:
+            conn.repository.CloseFile()
+        pythoncom.CoUninitialize()
 
 def test_create_class_diagram_integration(connector):
     """
@@ -38,15 +39,15 @@ def test_create_class_diagram_integration(connector):
     result = create_class_diagram(test_args, connector.repository.ConnectionString)
 
     assert result["status"] == "success"
-    assert "diagram_guid" in result
+    assert "diagram_guid" in result["data"]
 
-    created_diagram = connector.repository.GetDiagramByGuid(result["diagram_guid"])
+    created_diagram = connector.repository.GetDiagramByGuid(result["data"]["diagram_guid"])
     assert created_diagram is not None
     assert created_diagram.Name == "MyIntegrationTestClassDiagram"
 
     package = connector.repository.GetPackageByGuid(root_package.PackageGUID)
     for i in range(package.Diagrams.Count):
-        if package.Diagrams.GetAt(i).DiagramGUID == result["diagram_guid"]:
+        if package.Diagrams.GetAt(i).DiagramGUID == result["data"]["diagram_guid"]:
             package.Diagrams.Delete(i)
             package.Diagrams.Refresh()
             break
@@ -67,15 +68,15 @@ def test_create_sequence_diagram_integration(connector):
     result = create_sequence_diagram(test_args, connector.repository.ConnectionString)
 
     assert result["status"] == "success"
-    assert "diagram_guid" in result
+    assert "diagram_guid" in result["data"]
 
-    created_diagram = connector.repository.GetDiagramByGuid(result["diagram_guid"])
+    created_diagram = connector.repository.GetDiagramByGuid(result["data"]["diagram_guid"])
     assert created_diagram is not None
     assert created_diagram.Name == "MyIntegrationTestSequenceDiagram"
 
     package = connector.repository.GetPackageByGuid(root_package.PackageGUID)
     for i in range(package.Diagrams.Count):
-        if package.Diagrams.GetAt(i).DiagramGUID == result["diagram_guid"]:
+        if package.Diagrams.GetAt(i).DiagramGUID == result["data"]["diagram_guid"]:
             package.Diagrams.Delete(i)
             package.Diagrams.Refresh()
             break
@@ -97,15 +98,15 @@ def test_create_use_case_diagram_integration(connector):
     result = create_use_case_diagram(test_args, connector.repository.ConnectionString)
 
     assert result["status"] == "success"
-    assert "diagram_guid" in result
+    assert "diagram_guid" in result["data"]
 
-    created_diagram = connector.repository.GetDiagramByGuid(result["diagram_guid"])
+    created_diagram = connector.repository.GetDiagramByGuid(result["data"]["diagram_guid"])
     assert created_diagram is not None
     assert created_diagram.Name == "MyIntegrationTestUseCaseDiagram"
 
     package = connector.repository.GetPackageByGuid(root_package.PackageGUID)
     for i in range(package.Diagrams.Count):
-        if package.Diagrams.GetAt(i).DiagramGUID == result["diagram_guid"]:
+        if package.Diagrams.GetAt(i).DiagramGUID == result["data"]["diagram_guid"]:
             package.Diagrams.Delete(i)
             package.Diagrams.Refresh()
             break
@@ -127,15 +128,15 @@ def test_create_activity_diagram_integration(connector):
     result = create_activity_diagram(test_args, connector.repository.ConnectionString)
 
     assert result["status"] == "success"
-    assert "diagram_guid" in result
+    assert "diagram_guid" in result["data"]
 
-    created_diagram = connector.repository.GetDiagramByGuid(result["diagram_guid"])
+    created_diagram = connector.repository.GetDiagramByGuid(result["data"]["diagram_guid"])
     assert created_diagram is not None
     assert created_diagram.Name == "MyIntegrationTestActivityDiagram"
 
     package = connector.repository.GetPackageByGuid(root_package.PackageGUID)
     for i in range(package.Diagrams.Count):
-        if package.Diagrams.GetAt(i).DiagramGUID == result["diagram_guid"]:
+        if package.Diagrams.GetAt(i).DiagramGUID == result["data"]["diagram_guid"]:
             package.Diagrams.Delete(i)
             package.Diagrams.Refresh()
             break
@@ -154,7 +155,7 @@ def test_create_actor_lifeline_integration(connector):
     }
     diagram_result = create_sequence_diagram(diagram_args, connector.repository.ConnectionString)
     assert diagram_result["status"] == "success"
-    diagram_guid = diagram_result["diagram_guid"]
+    diagram_guid = diagram_result["data"]["diagram_guid"]
 
     lifeline_args = {
         "diagram_guid": diagram_guid,
@@ -164,7 +165,7 @@ def test_create_actor_lifeline_integration(connector):
     result = create_actor_lifeline(lifeline_args, connector.repository.ConnectionString)
 
     assert result["status"] == "success"
-    assert "element_guid" in result
+    assert "element_guid" in result["data"]
 
     # Cleanup
     package = connector.repository.GetPackageByGuid(root_package.PackageGUID)

@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 from datetime import datetime
-
 from mcp.server.fastmcp import FastMCP
 from typing import Dict, Any
 import logging
 from ea_connector import EAConnector
+from exceptions import EAConnectorError
 from dotenv import load_dotenv
 from lifeline_types import LIFELINE_STEREOTYPES
 
@@ -46,368 +46,278 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Define tool schemas
-SEQUENCE_DIAGRAM_SCHEMA = {
-    "type": "object",
-    "properties": {
-        "package_guid": {"type": "string", "description": "GUID of parent package"},
-        "name": {"type": "string", "description": "Diagram name"},
-        "elements": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "properties": {
-                    "name": {"type": "string"},
-                    "type": {"type": "string"},
-                    "stereotype": {"type": "string"}
-                }
-            }
-        }
-    },
-    "required": ["package_guid", "name"]
-}
+# --- Helper Functions ---
+def _handle_error(e: Exception, tool_name: str) -> Dict[str, Any]:
+    """Unified error handling for tools."""
+    if isinstance(e, EAConnectorError):
+        logger.error(f"Error in {tool_name}: {e.args[0]} - Details: {e.details}")
+        return {"status": "error", "message": e.args[0], "details": e.details}
+    
+    logger.error(f"An unexpected error occurred in {tool_name}: {str(e)}", exc_info=True)
+    return {"status": "error", "message": "An unexpected error occurred.", "details": str(e)}
 
-CLASS_DIAGRAM_SCHEMA = {
-    "type": "object",
-    "properties": {
-        "package_guid": {"type": "string", "description": "GUID of parent package"},
-        "name": {"type": "string", "description": "Diagram name"},
-        "classes": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "properties": {
-                    "name": {"type": "string"},
-                    "attributes": {"type": "array", "items": {"type": "string"}},
-                    "methods": {"type": "array", "items": {"type": "string"}}
-                }
-            }
-        }
-    },
-    "required": ["package_guid", "name"]
-}
+def _validate_args(args: Dict[str, Any], required_fields: list) -> None:
+    """Validate presence of required fields in arguments."""
+    for field in required_fields:
+        if field not in args or not args[field]:
+            raise ValueError(f"Missing required argument: '{field}'")
 
-USE_CASE_DIAGRAM_SCHEMA = {
-    "type": "object",
-    "properties": {
-        "package_guid": {"type": "string", "description": "GUID of parent package"},
-        "name": {"type": "string", "description": "Diagram name"},
-        "actors": {"type": "array", "items": {"type": "string"}},
-        "use_cases": {"type": "array", "items": {"type": "string"}}
-    },
-    "required": ["package_guid", "name"]
-}
-
-ACTIVITY_DIAGRAM_SCHEMA = {
-    "type": "object",
-    "properties": {
-        "package_guid": {"type": "string", "description": "GUID of parent package"},
-        "name": {"type": "string", "description": "Diagram name"},
-        "activities": {"type": "array", "items": {"type": "string"}},
-        "decisions": {"type": "array", "items": {"type": "string"}}
-    },
-    "required": ["package_guid", "name"]
-}
-
-LIFELINE_SCHEMA = {
-    "type": "object",
-    "properties": {
-        "diagram_guid": {"type": "string", "description": "GUID of the diagram"},
-        "name": {"type": "string", "description": "Name of the lifeline element"}
-    },
-    "required": ["diagram_guid", "name"]
-}
-
-# Clean up complete - all old class methods removed
-def _create_lifeline(diagram_guid: str, element_name: str, lifeline_type: str) -> Dict[str, Any]:
-    """Internal helper to create a lifeline element on a diagram."""
-    try:
-        # In EA, lifelines on sequence diagrams are 'Object' elements with a specific stereotype
-        element = connector.add_element_to_diagram(
-            diagram_guid,
-            element_name,
-            "Object",
-            lifeline_type
-        )
-        if not element:
-            return {"status": "error", "message": f"Failed to create {lifeline_type} lifeline"}
-        
-        # Auto-layout the diagram to accommodate the new element
-        connector.auto_layout_diagram(diagram_guid)
-
-        return {
-            "status": "success",
-            "element_guid": element["guid"]
-        }
-    except Exception as e:
-        logger.error(f"Error creating {lifeline_type} lifeline: {str(e)}")
-        return {"status": "error", "message": str(e)}
-
-# Register tools using decorators
+# --- Tool Implementations ---
 @mcp.tool(
     name="create_sequence_diagram",
-    description="Creates a sequence diagram in Enterprise Architect",
-    annotations={"input_schema": SEQUENCE_DIAGRAM_SCHEMA}
+    description="Creates a sequence diagram in Enterprise Architect.",
 )
 def create_sequence_diagram(args: Dict[str, Any], ea_file_path: str = None) -> Dict[str, Any]:
     """Create sequence diagram in EA"""
-    if not connector.connect(ea_file_path):
-        return {"status": "error", "message": "Failed to connect to Enterprise Architect"}
-        
     try:
-        # Create the diagram
+        _validate_args(args, ["package_guid", "name"])
+        connector.connect(ea_file_path)
+        
         diagram = connector.create_diagram(
             args["package_guid"],
             args["name"],
             DIAGRAM_TYPES["sequence"]
         )
-        if not diagram:
-            return {"status": "error", "message": "Failed to create diagram"}
         
-        # Add elements to diagram
         elements = []
-        for i, element in enumerate(args.get("elements", [])):
+        for element in args.get("elements", []):
+            _validate_args(element, ["name", "type"])
             el = connector.add_element_to_diagram(
                 diagram["guid"],
                 element["name"],
                 element.get("type", "Object"),
                 element.get("stereotype", "")
             )
-            if el:
-                elements.append(el["guid"])
+            elements.append(el["guid"])
         
-        # Auto-layout the diagram
         connector.auto_layout_diagram(diagram["guid"])
         
         return {
             "status": "success",
-            "diagram_guid": diagram["guid"],
-            "elements": elements
+            "data": {
+                "diagram_guid": diagram["guid"],
+                "elements": elements
+            }
         }
+    except (EAConnectorError, ValueError) as e:
+        return _handle_error(e, "create_sequence_diagram")
     except Exception as e:
-        logger.error(f"Error creating sequence diagram: {str(e)}")
-        return {"status": "error", "message": str(e)}
+        return _handle_error(e, "create_sequence_diagram")
 
 @mcp.tool(
     name="create_class_diagram",
-    description="Creates a class diagram in Enterprise Architect",
-    annotations={"input_schema": CLASS_DIAGRAM_SCHEMA}
+    description="Creates a class diagram in Enterprise Architect.",
 )
 def create_class_diagram(args: Dict[str, Any], ea_file_path: str = None) -> Dict[str, Any]:
     """Create class diagram in EA"""
-    if not connector.connect(ea_file_path):
-        return {"status": "error", "message": "Failed to connect to Enterprise Architect"}
-        
     try:
-        # Create the diagram
+        _validate_args(args, ["package_guid", "name"])
+        connector.connect(ea_file_path)
+        
         diagram = connector.create_diagram(
             args["package_guid"],
             args["name"],
             DIAGRAM_TYPES["class"]
         )
-        if not diagram:
-            return {"status": "error", "message": "Failed to create diagram"}
         
-        # Add classes to diagram
         classes = []
-        for _, cls in enumerate(args.get("classes", [])):
+        for cls in args.get("classes", []):
+            _validate_args(cls, ["name"])
             el = connector.add_element_to_diagram(
                 diagram["guid"],
                 cls["name"],
                 ELEMENT_TYPES["class"]
             )
-            if el:
-                classes.append(el["guid"])
+            classes.append(el["guid"])
         
-        # Auto-layout the diagram
         connector.auto_layout_diagram(diagram["guid"])
         
         return {
             "status": "success",
-            "diagram_guid": diagram["guid"],
-            "classes": classes
+            "data": {
+                "diagram_guid": diagram["guid"],
+                "classes": classes
+            }
         }
+    except (EAConnectorError, ValueError) as e:
+        return _handle_error(e, "create_class_diagram")
     except Exception as e:
-        logger.error(f"Error creating class diagram: {str(e)}")
-        return {"status": "error", "message": str(e)}
+        return _handle_error(e, "create_class_diagram")
 
 @mcp.tool(
     name="create_use_case_diagram",
-    description="Creates a use case diagram in Enterprise Architect",
-    annotations={"input_schema": USE_CASE_DIAGRAM_SCHEMA}
+    description="Creates a use case diagram in Enterprise Architect.",
 )
 def create_use_case_diagram(args: Dict[str, Any], ea_file_path: str = None) -> Dict[str, Any]:
     """Create use case diagram in EA"""
-    if not connector.connect(ea_file_path):
-        return {"status": "error", "message": "Failed to connect to Enterprise Architect"}
-        
     try:
-        # Create the diagram
+        _validate_args(args, ["package_guid", "name"])
+        connector.connect(ea_file_path)
+        
         diagram = connector.create_diagram(
             args["package_guid"],
             args["name"],
             DIAGRAM_TYPES["use_case"]
         )
-        if not diagram:
-            return {"status": "error", "message": "Failed to create diagram"}
         
-        # Add actors and use cases
         actors = []
+        for actor_name in args.get("actors", []):
+            el = connector.add_element_to_diagram(diagram["guid"], actor_name, "Actor")
+            actors.append(el["guid"])
+            
         use_cases = []
+        for uc_name in args.get("use_cases", []):
+            el = connector.add_element_to_diagram(diagram["guid"], uc_name, "UseCase")
+            use_cases.append(el["guid"])
         
-        # Position actors on left, use cases on right
-        for i, actor in enumerate(args.get("actors", [])):
-            el = connector.add_element_to_diagram(
-                diagram["guid"],
-                actor,
-                ELEMENT_TYPES["actor"]
-            )
-            if el:
-                actors.append(el["guid"])
-        
-        for _, use_case in enumerate(args.get("use_cases", [])):
-            el = connector.add_element_to_diagram(
-                diagram["guid"],
-                use_case,
-                ELEMENT_TYPES["use_case"]
-            )
-            if el:
-                use_cases.append(el["guid"])
-        
-        # Auto-layout the diagram
         connector.auto_layout_diagram(diagram["guid"])
         
         return {
             "status": "success",
-            "diagram_guid": diagram["guid"],
-            "actors": actors,
-            "use_cases": use_cases
+            "data": {
+                "diagram_guid": diagram["guid"],
+                "actors": actors,
+                "use_cases": use_cases
+            }
         }
+    except (EAConnectorError, ValueError) as e:
+        return _handle_error(e, "create_use_case_diagram")
     except Exception as e:
-        logger.error(f"Error creating use case diagram: {str(e)}")
-        return {"status": "error", "message": str(e)}
+        return _handle_error(e, "create_use_case_diagram")
 
 @mcp.tool(
     name="create_activity_diagram",
-    description="Creates an activity diagram in Enterprise Architect",
-    annotations={"input_schema": ACTIVITY_DIAGRAM_SCHEMA}
+    description="Creates an activity diagram in Enterprise Architect.",
 )
 def create_activity_diagram(args: Dict[str, Any], ea_file_path: str = None) -> Dict[str, Any]:
     """Create activity diagram in EA"""
-    if not connector.connect(ea_file_path):
-        return {"status": "error", "message": "Failed to connect to Enterprise Architect"}
-        
     try:
-        # Create the diagram
+        _validate_args(args, ["package_guid", "name"])
+        connector.connect(ea_file_path)
+        
         diagram = connector.create_diagram(
             args["package_guid"],
             args["name"],
             DIAGRAM_TYPES["activity"]
         )
-        if not diagram:
-            return {"status": "error", "message": "Failed to create diagram"}
         
-        # Add activities and decisions
         activities = []
+        for activity_name in args.get("activities", []):
+            el = connector.add_element_to_diagram(diagram["guid"], activity_name, "Activity")
+            activities.append(el["guid"])
+            
         decisions = []
-        
-        # Position elements in a flow
-        for i, activity in enumerate(args.get("activities", [])):
-            el = connector.add_element_to_diagram(
-                diagram["guid"],
-                activity,
-                ELEMENT_TYPES["activity"]
-            )
-            if el:
-                activities.append(el["guid"])
-        
-        for i, decision in enumerate(args.get("decisions", [])):
-            el = connector.add_element_to_diagram(
-                diagram["guid"],
-                decision,
-                ELEMENT_TYPES["decision"]
-            )
-            if el:
-                decisions.append(el["guid"])
-        
-        # Auto-layout the diagram
+        for decision_name in args.get("decisions", []):
+            el = connector.add_element_to_diagram(diagram["guid"], decision_name, "Decision")
+            decisions.append(el["guid"])
+            
         connector.auto_layout_diagram(diagram["guid"])
         
         return {
             "status": "success",
-            "diagram_guid": diagram["guid"],
-            "activities": activities,
-            "decisions": decisions
+            "data": {
+                "diagram_guid": diagram["guid"],
+                "activities": activities,
+                "decisions": decisions
+            }
         }
+    except (EAConnectorError, ValueError) as e:
+        return _handle_error(e, "create_activity_diagram")
     except Exception as e:
-        logger.error(f"Error creating activity diagram: {str(e)}")
-        return {"status": "error", "message": str(e)}
+        return _handle_error(e, "create_activity_diagram")
 
+def _create_lifeline(diagram_guid: str, element_name: str, lifeline_type: str) -> Dict[str, Any]:
+    """Internal helper to create a lifeline element on a diagram."""
+    try:
+        element = connector.add_element_to_diagram(
+            diagram_guid,
+            element_name,
+            "Object",
+            lifeline_type
+        )
+        connector.auto_layout_diagram(diagram_guid)
+        return {
+            "status": "success",
+            "data": {"element_guid": element["guid"]}
+        }
+    except EAConnectorError as e:
+        return _handle_error(e, f"create_{lifeline_type}_lifeline")
+    except Exception as e:
+        return _handle_error(e, f"create_{lifeline_type}_lifeline")
+
+# --- Lifeline Tools ---
 @mcp.tool(
     name="create_actor_lifeline",
     description="Creates an actor lifeline on a sequence diagram.",
-    annotations={"input_schema": LIFELINE_SCHEMA}
 )
 def create_actor_lifeline(args: Dict[str, Any], ea_file_path: str = None) -> Dict[str, Any]:
-    """Create an actor lifeline in EA"""
-    if not connector.connect(ea_file_path):
-        return {"status": "error", "message": "Failed to connect to Enterprise Architect"}
-    return _create_lifeline(args["diagram_guid"], args["name"], "actor")
+    try:
+        _validate_args(args, ["diagram_guid", "name"])
+        connector.connect(ea_file_path)
+        return _create_lifeline(args["diagram_guid"], args["name"], "actor")
+    except (EAConnectorError, ValueError) as e:
+        return _handle_error(e, "create_actor_lifeline")
 
 @mcp.tool(
     name="create_boundary_lifeline",
     description="Creates a boundary lifeline on a sequence diagram.",
-    annotations={"input_schema": LIFELINE_SCHEMA}
 )
 def create_boundary_lifeline(args: Dict[str, Any], ea_file_path: str = None) -> Dict[str, Any]:
-    """Create a boundary lifeline in EA"""
-    if not connector.connect(ea_file_path):
-        return {"status": "error", "message": "Failed to connect to Enterprise Architect"}
-    return _create_lifeline(args["diagram_guid"], args["name"], "boundary")
+    try:
+        _validate_args(args, ["diagram_guid", "name"])
+        connector.connect(ea_file_path)
+        return _create_lifeline(args["diagram_guid"], args["name"], "boundary")
+    except (EAConnectorError, ValueError) as e:
+        return _handle_error(e, "create_boundary_lifeline")
 
 @mcp.tool(
     name="create_control_lifeline",
     description="Creates a control lifeline on a sequence diagram.",
-    annotations={"input_schema": LIFELINE_SCHEMA}
 )
 def create_control_lifeline(args: Dict[str, Any], ea_file_path: str = None) -> Dict[str, Any]:
-    """Create a control lifeline in EA"""
-    if not connector.connect(ea_file_path):
-        return {"status": "error", "message": "Failed to connect to Enterprise Architect"}
-    return _create_lifeline(args["diagram_guid"], args["name"], "control")
+    try:
+        _validate_args(args, ["diagram_guid", "name"])
+        connector.connect(ea_file_path)
+        return _create_lifeline(args["diagram_guid"], args["name"], "control")
+    except (EAConnectorError, ValueError) as e:
+        return _handle_error(e, "create_control_lifeline")
 
 @mcp.tool(
     name="create_entity_lifeline",
     description="Creates an entity lifeline on a sequence diagram.",
-    annotations={"input_schema": LIFELINE_SCHEMA}
 )
 def create_entity_lifeline(args: Dict[str, Any], ea_file_path: str = None) -> Dict[str, Any]:
-    """Create an entity lifeline in EA"""
-    if not connector.connect(ea_file_path):
-        return {"status": "error", "message": "Failed to connect to Enterprise Architect"}
-    return _create_lifeline(args["diagram_guid"], args["name"], "entity")
+    try:
+        _validate_args(args, ["diagram_guid", "name"])
+        connector.connect(ea_file_path)
+        return _create_lifeline(args["diagram_guid"], args["name"], "entity")
+    except (EAConnectorError, ValueError) as e:
+        return _handle_error(e, "create_entity_lifeline")
 
 @mcp.tool(
     name="create_database_lifeline",
     description="Creates a database lifeline on a sequence diagram.",
-    annotations={"input_schema": LIFELINE_SCHEMA}
 )
 def create_database_lifeline(args: Dict[str, Any], ea_file_path: str = None) -> Dict[str, Any]:
-    """Create a database lifeline in EA"""
-    if not connector.connect(ea_file_path):
-        return {"status": "error", "message": "Failed to connect to Enterprise Architect"}
-    return _create_lifeline(args["diagram_guid"], args["name"], "database")
+    try:
+        _validate_args(args, ["diagram_guid", "name"])
+        connector.connect(ea_file_path)
+        return _create_lifeline(args["diagram_guid"], args["name"], "database")
+    except (EAConnectorError, ValueError) as e:
+        return _handle_error(e, "create_database_lifeline")
 
 @mcp.tool(
     name="create_use_case_lifeline",
     description="Creates a use case lifeline on a sequence diagram.",
-    annotations={"input_schema": LIFELINE_SCHEMA}
 )
 def create_use_case_lifeline(args: Dict[str, Any], ea_file_path: str = None) -> Dict[str, Any]:
-    """Create a use case lifeline in EA"""
-    if not connector.connect(ea_file_path):
-        return {"status": "error", "message": "Failed to connect to Enterprise Architect"}
-    return _create_lifeline(args["diagram_guid"], args["name"], "use_case")
+    try:
+        _validate_args(args, ["diagram_guid", "name"])
+        connector.connect(ea_file_path)
+        return _create_lifeline(args["diagram_guid"], args["name"], "use_case")
+    except (EAConnectorError, ValueError) as e:
+        return _handle_error(e, "create_use_case_lifeline")
+
 
 if __name__ == "__main__":
     print(f"Enterprise Architect MCP server starting at {datetime.now().isoformat()}")

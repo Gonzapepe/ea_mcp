@@ -4,6 +4,7 @@ import sys
 import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from ea_connector import EAConnector
+from exceptions import EAConnectorError
 import os
 
 @pytest.fixture
@@ -30,22 +31,22 @@ def test_connect_success(mocker, connector, mock_win32com, mock_ea_app):
     result = connector.connect("dummy_path")
     mock_win32com.assert_called_once_with('EA.App')
     mock_ea_app.Repository.OpenFile.assert_called_once_with('dummy_path')
-    assert result is True
+    assert result is None
 
 def test_connect_failure_no_env_var(mocker, connector):
     """Test connection failure when EA_FILE_PATH is not set."""
-    mocker.patch.object(connector, 'connect_ea', return_value=True)
     mocker.patch.dict(os.environ, {}, clear=True)
-    result = connector.connect("dummy_path")
-    assert result is False
+    mocker.patch('dotenv.load_dotenv')
+    with pytest.raises(EAConnectorError, match="EA_FILE_PATH environment variable not set"):
+        connector.connect()
 
 def test_connect_failure_ea_exception(mocker, connector, mock_win32com, mock_ea_app):
     """Test connection failure due to an exception from EA."""
     mocker.patch.dict(os.environ, {"EA_FILE_PATH": "dummy_path"})
     mock_ea_app.Repository.OpenFile.side_effect = Exception("Connection failed")
-    result = connector.connect("dummy_path")
+    with pytest.raises(EAConnectorError, match="Failed to connect to EA repository"):
+        connector.connect("dummy_path")
     mock_win32com.assert_called_once_with('EA.App')
-    assert result is False
 
 def test_create_diagram_success(mocker, connector, mock_win32com, mock_ea_app):
     """Test successful diagram creation."""
