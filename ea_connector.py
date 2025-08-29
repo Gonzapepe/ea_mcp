@@ -155,6 +155,107 @@ class EAConnector:
         except Exception as e:
             raise EAConnectorError("Failed to retrieve package details.", details=str(e))
 
+    def get_element_by_guid(self, element_guid: str) -> Dict[str, Any]:
+        """Retrieve an element by its GUID"""
+        self.logger.info(f"Retrieving element with GUID: {element_guid}")
+        element = self.repository.GetElementByGuid(element_guid)
+        if not element:
+            raise EAConnectorError(f"Element with GUID '{element_guid}' not found.")
+        
+        try:
+            result = {
+                "guid": element.ElementGUID,
+                "name": element.Name,
+                "type": element.Type,
+                "stereotype": element.Stereotype,
+                "notes": element.Notes
+            }
+            self.logger.info(f"Successfully retrieved element: {result['name']}")
+            return result
+        except Exception as e:
+            raise EAConnectorError("Failed to retrieve element details.", details=str(e))
+
+    def get_diagram_by_guid(self, diagram_guid: str) -> Dict[str, Any]:
+        """Retrieve a diagram by its GUID"""
+        self.logger.info(f"Retrieving diagram with GUID: {diagram_guid}")
+        diagram = self.repository.GetDiagramByGuid(diagram_guid)
+        if not diagram:
+            raise EAConnectorError(f"Diagram with GUID '{diagram_guid}' not found.")
+        
+        try:
+            result = {
+                "guid": diagram.DiagramGUID,
+                "name": diagram.Name,
+                "type": diagram.Type,
+                "notes": diagram.Notes
+            }
+            self.logger.info(f"Successfully retrieved diagram: {result['name']}")
+            return result
+        except Exception as e:
+            raise EAConnectorError("Failed to retrieve diagram details.", details=str(e))
+
+    def get_package_elements(self, package_guid: str, element_type: Optional[str] = None) -> list:
+        """Retrieve elements from a package, optionally filtered by type"""
+        self.logger.info(f"Retrieving elements from package '{package_guid}'.")
+        package = self.repository.GetPackageByGuid(package_guid)
+        if not package:
+            raise EAConnectorError(f"Package with GUID '{package_guid}' not found.")
+        
+        try:
+            elements = []
+            for element in package.Elements:
+                if not element_type or element.Type == element_type:
+                    elements.append({
+                        "guid": element.ElementGUID,
+                        "name": element.Name,
+                        "type": element.Type,
+                        "stereotype": element.Stereotype
+                    })
+            self.logger.info(f"Found {len(elements)} elements in package '{package_guid}'.")
+            return elements
+        except Exception as e:
+            raise EAConnectorError("Failed to retrieve package elements.", details=str(e))
+
+    def get_element_connectors(self, element_guid: str) -> list:
+        """Retrieve connectors for a given element"""
+        self.logger.info(f"Retrieving connectors for element '{element_guid}'.")
+        element = self.repository.GetElementByGuid(element_guid)
+        if not element:
+            raise EAConnectorError(f"Element with GUID '{element_guid}' not found.")
+        
+        try:
+            connectors = []
+            for connector in element.Connectors:
+                connectors.append({
+                    "guid": connector.ConnectorGUID,
+                    "type": connector.Type,
+                    "source_element_guid": self.repository.GetElementByID(connector.SupplierID).ElementGUID,
+                    "target_element_guid": self.repository.GetElementByID(connector.ClientID).ElementGUID
+                })
+            self.logger.info(f"Found {len(connectors)} connectors for element '{element_guid}'.")
+            return connectors
+        except Exception as e:
+            raise EAConnectorError("Failed to retrieve element connectors.", details=str(e))
+
+    def find_elements(self, search_term: str, element_type: Optional[str] = None) -> list:
+        """Find elements by search term, optionally filtered by type"""
+        self.logger.info(f"Searching for elements with term '{search_term}'.")
+        try:
+            search_results = self.repository.GetElementSet(f"SELECT * FROM t_object WHERE Name LIKE '%{search_term}%'", 2)
+            elements = []
+            for element in search_results:
+                if not element_type or element.Type == element_type:
+                    elements.append({
+                        "guid": element.ElementGUID,
+                        "name": element.Name,
+                        "type": element.Type,
+                        "stereotype": element.Stereotype
+                    })
+            self.logger.info(f"Found {len(elements)} elements matching '{search_term}'.")
+            return elements
+        except Exception as e:
+            raise EAConnectorError("Failed to find elements.", details=str(e))
+
 if __name__ == '__main__':
     # This block is for standalone testing of the connector
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')

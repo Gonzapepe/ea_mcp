@@ -308,6 +308,62 @@ def create_use_case_lifeline(args: Dict[str, Any], ea_file_path: str = None) -> 
     connector.connect(ea_file_path)
     return _create_lifeline(args["diagram_guid"], args["name"], "use_case")
 
+# --- Navigation Tools ---
+@mcp.tool(
+    name="get_element",
+    description="Retrieves details of a specific element by its GUID.",
+)
+@tool_handler
+def get_element(args: Dict[str, Any], ea_file_path: str = None) -> Dict[str, Any]:
+    _validate_args(args, ["guid"])
+    connector.connect(ea_file_path)
+    element = connector.get_element_by_guid(args["guid"])
+    return {"status": "success", "data": element}
+
+@mcp.tool(
+    name="get_diagram",
+    description="Retrieves details of a specific diagram by its GUID.",
+)
+@tool_handler
+def get_diagram(args: Dict[str, Any], ea_file_path: str = None) -> Dict[str, Any]:
+    _validate_args(args, ["guid"])
+    connector.connect(ea_file_path)
+    diagram = connector.get_diagram_by_guid(args["guid"])
+    return {"status": "success", "data": diagram}
+
+@mcp.tool(
+    name="list_package_contents",
+    description="Lists all elements in a package, optionally filtering by type.",
+)
+@tool_handler
+def list_package_contents(args: Dict[str, Any], ea_file_path: str = None) -> Dict[str, Any]:
+    _validate_args(args, ["package_guid"])
+    connector.connect(ea_file_path)
+    elements = connector.get_package_elements(args["package_guid"], args.get("element_type"))
+    return {"status": "success", "data": elements}
+
+@mcp.tool(
+    name="list_element_connectors",
+    description="Lists all connectors for a given element.",
+)
+@tool_handler
+def list_element_connectors(args: Dict[str, Any], ea_file_path: str = None) -> Dict[str, Any]:
+    _validate_args(args, ["element_guid"])
+    connector.connect(ea_file_path)
+    connectors = connector.get_element_connectors(args["element_guid"])
+    return {"status": "success", "data": connectors}
+
+@mcp.tool(
+    name="find_element",
+    description="Finds elements by name across the model, optionally filtering by type.",
+)
+@tool_handler
+def find_element(args: Dict[str, Any], ea_file_path: str = None) -> Dict[str, Any]:
+    _validate_args(args, ["search_term"])
+    connector.connect(ea_file_path)
+    elements = connector.find_elements(args["search_term"], args.get("element_type"))
+    return {"status": "success", "data": elements}
+
 
 if __name__ == "__main__":
     logger.info(f"Enterprise Architect MCP server starting at {datetime.now().isoformat()}")
