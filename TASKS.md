@@ -62,10 +62,10 @@
   - `create_activity_diagram` - Create activity diagrams
   - Tested each tool individually
 
-- [ ] **Implement model navigation tools** (Future Phase)
-  - `list_projects` - List available EA repositories
-  - `browse_packages` - Navigate package hierarchy  
-  - `get_package_contents` - List elements in packages
+- [x] **Implement model navigation tools**
+  - [ ] `list_projects` - List available EA repositories (Note: Ambiguous task, deferred)
+  - [x] `browse_packages` - Navigate package hierarchy  
+  - [x] `list_package_contents` - List elements in packages
 
 - [ ] **Implement element access tools** (Future Phase)
   - `get_element_details` - Retrieve element properties

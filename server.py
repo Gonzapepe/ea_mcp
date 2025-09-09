@@ -354,6 +354,16 @@ def list_element_connectors(args: Dict[str, Any], ea_file_path: str = None) -> D
     return {"status": "success", "data": connectors}
 
 @mcp.tool(
+    name="browse_packages",
+    description="Browses packages in the model. If no package_guid is provided, it lists the root packages.",
+)
+@tool_handler
+def browse_packages(args: Dict[str, Any], ea_file_path: str = None) -> Dict[str, Any]:
+    connector.connect(ea_file_path)
+    packages = connector.get_sub_packages(args.get("package_guid"))
+    return {"status": "success", "data": packages}
+
+@mcp.tool(
     name="find_element",
     description="Finds elements by name across the model, optionally filtering by type.",
 )

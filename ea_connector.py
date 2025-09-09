@@ -216,6 +216,31 @@ class EAConnector:
         except Exception as e:
             raise EAConnectorError("Failed to retrieve package elements.", details=str(e))
 
+    def get_sub_packages(self, package_guid: Optional[str] = None) -> list:
+        """Retrieve sub-packages from a package, or root packages if no GUID is provided."""
+        self.logger.info(f"Retrieving sub-packages for package GUID: {package_guid or 'root'}")
+        try:
+            package_collection = None
+            if package_guid:
+                package = self.repository.GetPackageByGuid(package_guid)
+                if not package:
+                    raise EAConnectorError(f"Package with GUID '{package_guid}' not found.")
+                package_collection = package.Packages
+            else:
+                package_collection = self.repository.Models
+            
+            packages = []
+            for pkg in package_collection:
+                packages.append({
+                    "guid": pkg.PackageGUID,
+                    "name": pkg.Name
+                })
+            
+            self.logger.info(f"Found {len(packages)} sub-packages.")
+            return packages
+        except Exception as e:
+            raise EAConnectorError("Failed to retrieve sub-packages.", details=str(e))
+
     def get_element_connectors(self, element_guid: str) -> list:
         """Retrieve connectors for a given element"""
         self.logger.info(f"Retrieving connectors for element '{element_guid}'.")
