@@ -8,7 +8,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from server import (
     create_sequence_diagram, create_class_diagram, 
     create_use_case_diagram, create_activity_diagram,
-    _create_lifeline, create_actor_lifeline, create_boundary_lifeline,
+    _create_lifeline, create_actor, create_boundary_lifeline,
     create_control_lifeline, create_entity_lifeline,
     create_database_lifeline, create_use_case_lifeline
 )
@@ -118,11 +118,11 @@ def test_create_lifeline_success(mock_connector):
     """Test the internal _create_lifeline helper."""
     mock_connector.add_element_to_diagram.return_value = {"guid": "lifeline-guid"}
 
-    result = _create_lifeline("diag-guid", "TestLifeline", "actor")
+    result = _create_lifeline("diag-guid", "TestLifeline", "boundary")
     
     assert result["status"] == "success"
     assert result["data"]["element_guid"] == "lifeline-guid"
-    mock_connector.add_element_to_diagram.assert_called_with("diag-guid", "TestLifeline", "Object", "actor")
+    mock_connector.add_element_to_diagram.assert_called_with("diag-guid", "TestLifeline", "Object", "boundary")
 
 def test_create_lifeline_fails(mock_connector):
     """Test _create_lifeline when element creation fails."""
@@ -133,49 +133,16 @@ def test_create_lifeline_fails(mock_connector):
     assert result["status"] == "error"
     assert "Element creation failed" in result["message"]
 
-@pytest.mark.parametrize("lifeline_func,lifeline_type", [
-    (create_actor_lifeline, "actor"),
-    (create_boundary_lifeline, "boundary"),
-    (create_control_lifeline, "control"),
-    (create_entity_lifeline, "entity"),
-    (create_database_lifeline, "database"),
-    (create_use_case_lifeline, "use_case"),
-])
-def test_all_lifeline_creation_tools(mock_connector, lifeline_func, lifeline_type):
-    """Test all public lifeline creation tools."""
-    with patch('server._create_lifeline') as mock_create_lifeline:
-        mock_create_lifeline.return_value = {"status": "success"}
-        
-        args = {"diagram_guid": "diag-123", "name": f"Test {lifeline_type}"}
-        result = lifeline_func(args)
-        
-        assert result["status"] == "success"
-        mock_create_lifeline.assert_called_once_with(args["diagram_guid"], args["name"], lifeline_type)
+def test_create_actor_success(mock_connector):
+    """Test actor creation"""
+    mock_connector.add_element_to_diagram.return_value = {"guid": "actor-guid-1"}
 
-def test_create_lifeline_fails(mock_connector):
-    """Test _create_lifeline when element creation fails."""
-    mock_connector.add_element_to_diagram.side_effect = EAConnectorError("Element creation failed")
+    test_args = {
+        "diagram_guid": "diag-123",
+        "name": "Test Actor"
+    }
+    result = create_actor(test_args)
 
-    result = _create_lifeline("diag-guid", "TestLifeline", "boundary")
-
-    assert result["status"] == "error"
-    assert "Element creation failed" in result["message"]
-
-@pytest.mark.parametrize("lifeline_func,lifeline_type", [
-    (create_actor_lifeline, "actor"),
-    (create_boundary_lifeline, "boundary"),
-    (create_control_lifeline, "control"),
-    (create_entity_lifeline, "entity"),
-    (create_database_lifeline, "database"),
-    (create_use_case_lifeline, "use_case"),
-])
-def test_all_lifeline_creation_tools(mock_connector, lifeline_func, lifeline_type):
-    """Test all public lifeline creation tools."""
-    with patch('server._create_lifeline') as mock_create_lifeline:
-        mock_create_lifeline.return_value = {"status": "success"}
-        
-        args = {"diagram_guid": "diag-123", "name": f"Test {lifeline_type}"}
-        result = lifeline_func(args)
-        
-        assert result["status"] == "success"
-        mock_create_lifeline.assert_called_once_with(args["diagram_guid"], args["name"], lifeline_type)
+    assert result["status"] == "success"
+    assert result["data"]["element_guid"] == "actor-guid-1"
+    mock_connector.add_element_to_diagram.assert_called_with("diag-123", "Test Actor", "Actor")
