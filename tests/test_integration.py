@@ -5,7 +5,7 @@ import pythoncom
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from server import (
     create_class_diagram, create_sequence_diagram, create_use_case_diagram,
-    create_activity_diagram, create_actor_lifeline
+    create_activity_diagram, create_actor
 )
 from ea_connector import EAConnector
 from exceptions import EAConnectorError
@@ -141,9 +141,9 @@ def test_create_activity_diagram_integration(connector):
             package.Diagrams.Refresh()
             break
 
-def test_create_actor_lifeline_integration(connector):
+def test_create_actor_integration(connector):
     """
-    Integration test to create an actor lifeline in a real EA project.
+    Integration test to create an actor in a real EA project.
     """
     root_package = connector.repository.Models.GetAt(0)
     assert root_package is not None, "Could not find a root package in the test project"
@@ -151,26 +151,26 @@ def test_create_actor_lifeline_integration(connector):
     # First, create a sequence diagram to add the lifeline to
     diagram_args = {
         "package_guid": root_package.PackageGUID,
-        "name": "LifelineTestDiagram"
+        "name": "ActorTestDiagram"
     }
     diagram_result = create_sequence_diagram(diagram_args, connector.repository.ConnectionString)
     assert diagram_result["status"] == "success"
     diagram_guid = diagram_result["data"]["diagram_guid"]
 
-    lifeline_args = {
+    actor_args = {
         "diagram_guid": diagram_guid,
-        "name": "MyIntegrationTestActorLifeline"
+        "name": "MyIntegrationTestActor"
     }
 
-    result = create_actor_lifeline(lifeline_args, connector.repository.ConnectionString)
+    result = create_actor(actor_args, connector.repository.ConnectionString)
 
     assert result["status"] == "success"
     assert "element_guid" in result["data"]
 
     # Cleanup
-    package = connector.repository.GetPackageByGuid(root_package.PackageGUID)
-    for i in range(package.Diagrams.Count):
-        if package.Diagrams.GetAt(i).DiagramGUID == diagram_guid:
-            package.Diagrams.Delete(i)
-            package.Diagrams.Refresh()
-            break
+    # package = connector.repository.GetPackageByGuid(root_package.PackageGUID)
+    # for i in range(package.Diagrams.Count):
+    #     if package.Diagrams.GetAt(i).DiagramGUID == diagram_guid:
+    #         package.Diagrams.Delete(i)
+    #         package.Diagrams.Refresh()
+    #         break

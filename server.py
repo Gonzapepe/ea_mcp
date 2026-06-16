@@ -3,6 +3,7 @@ from datetime import datetime
 from mcp.server.fastmcp import FastMCP
 from typing import Dict, Any
 import logging
+import json
 import functools
 from ea_connector import EAConnector
 from exceptions import EAConnectorError
@@ -52,10 +53,12 @@ def _handle_error(e: Exception, tool_name: str) -> Dict[str, Any]:
     """Unified error handling for tools."""
     if isinstance(e, EAConnectorError):
         logger.error(f"Error in {tool_name}: {e.args[0]} - Details: {e.details}")
-        return {"status": "error", "message": e.args[0], "details": e.details}
-    
-    logger.error(f"An unexpected error occurred in {tool_name}: {str(e)}", exc_info=True)
-    return {"status": "error", "message": "An unexpected error occurred.", "details": str(e)}
+        error_response = {"status": "error", "message": e.args[0], "details": e.details}
+    else:
+        logger.error(f"An unexpected error occurred in {tool_name}: {str(e)}", exc_info=True)
+        error_response = {"status": "error", "message": "An unexpected error occurred.", "details": str(e)}
+    print(json.dumps(error_response, indent=4))
+    return error_response
 
 def _validate_args(args: Dict[str, Any], required_fields: list) -> None:
     """Validate presence of required fields in arguments."""
@@ -72,6 +75,7 @@ def tool_handler(func):
         try:
             result = func(args, ea_file_path)
             logger.info(f"Tool {tool_name} executed successfully.")
+            print(json.dumps(result, indent=4))
             return result
         except (EAConnectorError, ValueError) as e:
             return _handle_error(e, tool_name)
@@ -249,14 +253,31 @@ def _create_lifeline(diagram_guid: str, element_name: str, lifeline_type: str) -
 
 # --- Lifeline Tools ---
 @mcp.tool(
-    name="create_actor_lifeline",
-    description="Creates an actor lifeline on a sequence diagram.",
+    name="create_actor",
+    description="Creates an actor in a use case or sequence diagram.",
 )
 @tool_handler
-def create_actor_lifeline(args: Dict[str, Any], ea_file_path: str = None) -> Dict[str, Any]:
+def create_actor(args: Dict[str, Any], ea_file_path: str = None) -> Dict[str, Any]:
+    """Create an actor in a use case or sequence diagram."""
     _validate_args(args, ["diagram_guid", "name"])
     connector.connect(ea_file_path)
-    return _create_lifeline(args["diagram_guid"], args["name"], "actor")
+    
+    try:
+        element = connector.add_element_to_diagram(
+            args["diagram_guid"],
+            args["name"],
+            "Actor"
+        )
+        connector.auto_layout_diagram(args["diagram_guid"])
+        return {
+            "status": "success",
+            "data": {"element_guid": element["guid"]}
+        }
+    except EAConnectorError as e:
+        return _handle_error(e, "create_actor")
+    except Exception as e:
+        return _handle_error(e, "create_actor")
+
 
 @mcp.tool(
     name="create_boundary_lifeline",
@@ -359,6 +380,7 @@ def list_element_connectors(args: Dict[str, Any], ea_file_path: str = None) -> D
 )
 @tool_handler
 def browse_packages(args: Dict[str, Any], ea_file_path: str = None) -> Dict[str, Any]:
+    print("--- BROWSE PACKAGES CALLED ---")
     connector.connect(ea_file_path)
     packages = connector.get_sub_packages(args.get("package_guid"))
     return {"status": "success", "data": packages}
